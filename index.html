@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>שלט LED חכם</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      gap: 2rem;
+    }
+
+    h1 { font-size: 1.4rem; color: #aaa; letter-spacing: 2px; text-transform: uppercase; }
+
+    /* ---- Clock ---- */
+    #clock {
+      font-size: 5rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 6px;
+      text-shadow: 0 0 30px #6c63ff88;
+    }
+    #date-display { color: #888; font-size: 1rem; margin-top: 0.3rem; }
+
+    /* ---- Status ---- */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+    #status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.4s;
+    }
+    #status-dot.connected { background: #4cff91; box-shadow: 0 0 8px #4cff91; }
+    #status-dot.error     { background: #ff4c4c; box-shadow: 0 0 8px #ff4c4c; }
+
+    /* ---- LED card ---- */
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+      width: 100%;
+      max-width: 480px;
+    }
+    .card h2 { font-size: 1rem; color: #888; margin-bottom: 1rem; }
+
+    /* Manual toggle */
+    #led-toggle {
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 10px;
+      border: none;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #2a2a4a;
+      color: #aaa;
+    }
+    #led-toggle.on {
+      background: #ffe066;
+      color: #1a1a00;
+      box-shadow: 0 0 20px #ffe06688;
+    }
+
+    /* LED visual */
+    #led-visual {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #2a2a2a;
+      margin: 1rem auto;
+      transition: all 0.4s;
+    }
+    #led-visual.on {
+      background: #ffe066;
+      box-shadow: 0 0 20px #ffe066, 0 0 50px #ffe06655;
+    }
+
+    /* ---- Schedule ---- */
+    .add-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .add-row input[type="time"] {
+      flex: 1;
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      border: 1px solid #3a3a5a;
+      background: #12122a;
+      color: #e0e0f0;
+      font-size: 1rem;
+    }
+    .add-row select {
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      border: 1px solid #3a3a5a;
+      background: #12122a;
+      color: #e0e0f0;
+      font-size: 0.95rem;
+    }
+    .btn {
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .btn-add  { background: #6c63ff; color: #fff; }
+    .btn-add:hover { background: #857bff; }
+
+    #schedule-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    #schedule-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #12122a;
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      font-size: 0.95rem;
+    }
+    .tag {
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .tag-on  { background: #ffe06622; color: #ffe066; }
+    .tag-off { background: #ffffff11; color: #aaa; }
+
+    .btn-del {
+      background: transparent;
+      border: 1px solid #3a3a5a;
+      color: #ff6b6b;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .btn-del:hover { background: #ff6b6b22; }
+
+    #sync-btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.7rem;
+      border-radius: 8px;
+      border: 1px solid #6c63ff;
+      background: transparent;
+      color: #6c63ff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #sync-btn:hover { background: #6c63ff22; }
+
+    #empty-msg { color: #444; font-size: 0.9rem; text-align: center; padding: 1rem; }
+  </style>
+</head>
+<body>
+
+<h1>🌐 שלט LED חכם</h1>
+
+<div id="clock">00:00:00</div>
+<div id="date-display"></div>
+
+<div id="status-bar">
+  <div id="status-dot"></div>
+  <span id="status-text">מתחבר ל-MQTT...</span>
+</div>
+
+<!-- Manual Control -->
+<div class="card">
+  <h2>שליטה ידנית</h2>
+  <div id="led-visual"></div>
+  <button id="led-toggle" onclick="toggleLED()">💡 הדלק</button>
+</div>
+
+<!-- Scheduler -->
+<div class="card">
+  <h2>📅 לוז אוטומטי</h2>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
+    <div class="add-row">
+      <label style="color:#aaa;font-size:0.85rem;min-width:60px;">💡 הדלקה</label>
+      <input type="number" id="on-day" min="1" max="31" placeholder="יום" style="width:60px;" />
+      <input type="number" id="on-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
+      <input type="number" id="on-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
+      <input type="time" id="on-time" />
+    </div>
+    <div class="add-row">
+      <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚫ כיבוי</label>
+      <input type="number" id="off-day" min="1" max="31" placeholder="יום" style="width:60px;" />
+      <input type="number" id="off-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
+      <input type="number" id="off-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
+      <input type="time" id="off-time" />
+    </div>
+    <button class="btn btn-add" onclick="addSchedule()" style="width:100%;">+ הוסף לוז</button>
+  </div>
+  <ul id="schedule-list">
+    <li id="empty-msg">אין לוז עדיין</li>
+  </ul>
+  <button id="sync-btn" onclick="syncSchedule()">📤 שלח לוז ל-ESP32</button>
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────
+  // שנה את הערכים האלו לפי ה-HiveMQ שלך
+  const BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt';
+  const TOPIC_CMD  = 'led-scheduler/cmd';      // פקודות ידניות
+  const TOPIC_SCHED = 'led-scheduler/schedule'; // לוז
+
+  // ── Clock ────────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('he-IL', { hour12: false });
+    document.getElementById('date-display').textContent =
+      now.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── MQTT ─────────────────────────────────────────────────
+  let client;
+  let ledState = false;
+
+  function setStatus(state, text) {
+    const dot = document.getElementById('status-dot');
+    dot.className = state;
+    document.getElementById('status-text').textContent = text;
+  }
+
+  function connectMQTT() {
+    client = mqtt.connect(BROKER_URL, {
+      clientId: 'web-' + Math.random().toString(16).slice(2, 8),
+      clean: true,
+      reconnectPeriod: 5000,
+    });
+
+    client.on('connect', () => setStatus('connected', 'מחובר ל-MQTT ✓'));
+    client.on('error',   () => setStatus('error', 'שגיאת חיבור'));
+    client.on('offline', () => setStatus('', 'מנותק — מנסה שוב...'));
+  }
+
+  connectMQTT();
+
+  // ── LED Control ──────────────────────────────────────────
+  function toggleLED() {
+    ledState = !ledState;
+    updateLEDUI(ledState);
+    if (client && client.connected) {
+      client.publish(TOPIC_CMD, JSON.stringify({ cmd: ledState ? 'on' : 'off' }));
+    }
+  }
+
+  function updateLEDUI(on) {
+    const btn = document.getElementById('led-toggle');
+    const vis = document.getElementById('led-visual');
+    btn.textContent = on ? '💡 כבה' : '💡 הדלק';
+    btn.className   = on ? 'on' : '';
+    vis.className   = on ? 'on' : '';
+  }
+
+  // ── Schedule ─────────────────────────────────────────────
+  let schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+
+  function todayParts() {
+    const now = new Date();
+    return { d: now.getDate(), m: now.getMonth() + 1, y: now.getFullYear() };
+  }
+
+  function getDateStr(day, month, year) {
+    return `${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  }
+
+  window.addEventListener('load', () => {
+    const { d, m, y } = todayParts();
+    document.getElementById('on-day').value   = d;
+    document.getElementById('on-month').value = m;
+    document.getElementById('on-year').value  = y;
+    document.getElementById('off-day').value   = d;
+    document.getElementById('off-month').value = m;
+    document.getElementById('off-year').value  = y;
+
+    // כשמשנים תאריך הדלקה — מעדכן כיבוי אוטומטית
+    ['on-day','on-month','on-year'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        document.getElementById('off-day').value   = document.getElementById('on-day').value;
+        document.getElementById('off-month').value = document.getElementById('on-month').value;
+        document.getElementById('off-year').value  = document.getElementById('on-year').value;
+      });
+    });
+  });
+
+  function renderSchedule() {
+    const list = document.getElementById('schedule-list');
+    if (schedules.length === 0) {
+      list.innerHTML = '<li id="empty-msg">אין לוז עדיין</li>';
+      return;
+    }
+    list.innerHTML = schedules
+      .slice()
+      .sort((a, b) => (a.onDate + a.onTime).localeCompare(b.onDate + b.onTime))
+      .map((s, i) => `
+        <li style="flex-direction:column;align-items:flex-start;gap:0.3rem;">
+          <div style="display:flex;justify-content:space-between;width:100%;">
+            <span style="font-size:0.8rem;color:#888;">${formatDate(s.onDate)}</span>
+            <button class="btn-del" onclick="deleteSchedule(${i})">הסר</button>
+          </div>
+          <div style="display:flex;gap:1rem;">
+            <span class="tag tag-on">💡 ${s.onTime}</span>
+            <span style="color:#555;">→</span>
+            <span class="tag tag-off">⚫ ${s.offTime} ${s.offDate !== s.onDate ? formatDate(s.offDate) : ''}</span>
+          </div>
+        </li>`)
+      .join('');
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+  }
+
+  function addSchedule() {
+    const onDay   = document.getElementById('on-day').value;
+    const onMonth = document.getElementById('on-month').value;
+    const onYear  = document.getElementById('on-year').value;
+    const onTime  = document.getElementById('on-time').value;
+    const offDay  = document.getElementById('off-day').value;
+    const offMonth= document.getElementById('off-month').value;
+    const offYear = document.getElementById('off-year').value;
+    const offTime = document.getElementById('off-time').value;
+    if (!onDay || !onMonth || !onYear || !onTime || !offDay || !offMonth || !offYear || !offTime) {
+      alert('בחר תאריך ושעה להדלקה וכיבוי');
+      return;
+    }
+    const onDate  = getDateStr(onDay, onMonth, onYear);
+    const offDate = getDateStr(offDay, offMonth, offYear);
+    schedules.push({ onDate, onTime, offDate, offTime, time: onTime, action: 'on' });
+    schedules.push({ onDate: offDate, onTime: offTime, offDate, offTime, time: offTime, action: 'off', _hide: true });
+    localStorage.setItem('schedules', JSON.stringify(schedules));
+    renderSchedule();
+  }
+
+  function deleteSchedule(i) {
+    // remove pair (on + off)
+    schedules.splice(i, 2);
+    localStorage.setItem('schedules', JSON.stringify(schedules));
+    renderSchedule();
+  }
+
+  function syncSchedule() {
+    if (!client || !client.connected) {
+      alert('לא מחובר ל-MQTT. בדוק חיבור.');
+      return;
+    }
+    const toSend = schedules.map(s => ({ time: s.time, action: s.action }));
+    client.publish(TOPIC_SCHED, JSON.stringify({ schedules: toSend }), { retain: true });
+    alert('✅ הלוז נשלח ל-ESP32!');
+  }
+
+  renderSchedule();
+</script>
+</body>
+</html>
