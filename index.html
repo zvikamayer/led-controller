@@ -293,14 +293,20 @@
 
   window.addEventListener('load', () => {
     const { d, m, y } = todayParts();
-    document.getElementById('on-day').value   = d;
-    document.getElementById('on-month').value = m;
-    document.getElementById('on-year').value  = y;
+    const now = new Date();
+    const hh  = String(now.getHours()).padStart(2, '0');
+    const mm  = String(now.getMinutes()).padStart(2, '0');
+    const mm2 = String((now.getMinutes() + 1) % 60).padStart(2, '0');
+
+    document.getElementById('on-day').value    = d;
+    document.getElementById('on-month').value  = m;
+    document.getElementById('on-year').value   = y;
+    document.getElementById('on-time').value   = `${hh}:${mm}`;
     document.getElementById('off-day').value   = d;
     document.getElementById('off-month').value = m;
     document.getElementById('off-year').value  = y;
+    document.getElementById('off-time').value  = `${hh}:${mm2}`;
 
-    // כשמשנים תאריך הדלקה — מעדכן כיבוי אוטומטית
     ['on-day','on-month','on-year'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => {
         document.getElementById('off-day').value   = document.getElementById('on-day').value;
