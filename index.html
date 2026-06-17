@@ -316,22 +316,21 @@
       list.innerHTML = '<li id="empty-msg">אין לוז עדיין</li>';
       return;
     }
-    list.innerHTML = schedules
-      .slice()
-      .sort((a, b) => (a.onDate + a.onTime).localeCompare(b.onDate + b.onTime))
-      .map((s, i) => `
-        <li style="flex-direction:column;align-items:flex-start;gap:0.3rem;">
-          <div style="display:flex;justify-content:space-between;width:100%;">
-            <span style="font-size:0.8rem;color:#888;">${formatDate(s.onDate)}</span>
-            <button class="btn-del" onclick="deleteSchedule(${i})">הסר</button>
-          </div>
-          <div style="display:flex;gap:1rem;">
-            <span class="tag tag-on">💡 ${s.onTime}</span>
-            <span style="color:#555;">→</span>
-            <span class="tag tag-off">⚫ ${s.offTime} ${s.offDate !== s.onDate ? formatDate(s.offDate) : ''}</span>
-          </div>
-        </li>`)
-      .join('');
+    const sorted = schedules
+      .map((s, i) => ({ ...s, _orig: i }))
+      .sort((a, b) => (a.onDate + a.onTime).localeCompare(b.onDate + b.onTime));
+    list.innerHTML = sorted.map(s => `
+      <li style="flex-direction:column;align-items:flex-start;gap:0.3rem;">
+        <div style="display:flex;justify-content:space-between;width:100%;">
+          <span style="font-size:0.8rem;color:#888;">${formatDate(s.onDate)}</span>
+          <button class="btn-del" onclick="deleteSchedule(${s._orig})">הסר</button>
+        </div>
+        <div style="display:flex;gap:1rem;align-items:center;">
+          <span class="tag tag-on">💡 ${s.onTime}</span>
+          <span style="color:#555;">→</span>
+          <span class="tag tag-off">⚫ ${s.offTime}${s.offDate !== s.onDate ? ' ' + formatDate(s.offDate) : ''}</span>
+        </div>
+      </li>`).join('');
   }
 
   function formatDate(d) {
@@ -355,15 +354,13 @@
     }
     const onDate  = getDateStr(onDay, onMonth, onYear);
     const offDate = getDateStr(offDay, offMonth, offYear);
-    schedules.push({ onDate, onTime, offDate, offTime, time: onTime, action: 'on' });
-    schedules.push({ onDate: offDate, onTime: offTime, offDate, offTime, time: offTime, action: 'off', _hide: true });
+    schedules.push({ onDate, onTime, offDate, offTime });
     localStorage.setItem('schedules', JSON.stringify(schedules));
     renderSchedule();
   }
 
   function deleteSchedule(i) {
-    // remove pair (on + off)
-    schedules.splice(i, 2);
+    schedules.splice(i, 1);
     localStorage.setItem('schedules', JSON.stringify(schedules));
     renderSchedule();
   }
@@ -373,7 +370,11 @@
       alert('לא מחובר ל-MQTT. בדוק חיבור.');
       return;
     }
-    const toSend = schedules.map(s => ({ time: s.time, action: s.action }));
+    const toSend = [];
+    schedules.forEach(s => {
+      toSend.push({ time: s.onTime, action: 'on',  date: s.onDate  });
+      toSend.push({ time: s.offTime, action: 'off', date: s.offDate });
+    });
     client.publish(TOPIC_SCHED, JSON.stringify({ schedules: toSend }), { retain: true });
     alert('✅ הלוז נשלח ל-ESP32!');
   }
