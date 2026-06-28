@@ -220,12 +220,47 @@
   <button id="sync-btn" onclick="syncSchedule()">📤 שלח לוז ל-ESP32</button>
 </div>
 
+<!-- Relay Control -->
+<div class="card">
+  <h2>⚡ הפעלה X</h2>
+  <div id="relay-visual" style="width:40px;height:40px;border-radius:50%;background:#2a2a2a;margin:1rem auto;transition:all 0.4s;"></div>
+  <button id="relay-toggle" onclick="toggleRelay()" style="width:100%;padding:0.9rem;border-radius:10px;border:none;font-size:1.1rem;font-weight:600;cursor:pointer;transition:all 0.3s;background:#2a2a4a;color:#aaa;">⚡ הפעל</button>
+</div>
+
+<!-- Relay Scheduler -->
+<div class="card">
+  <h2>📅 לוז הפעלה X</h2>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
+    <div class="add-row">
+      <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚡ הפעלה</label>
+      <input type="number" id="rx-on-day" min="1" max="31" placeholder="יום" style="width:60px;" />
+      <input type="number" id="rx-on-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
+      <input type="number" id="rx-on-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
+      <input type="time" id="rx-on-time" />
+    </div>
+    <div class="add-row">
+      <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚫ כיבוי</label>
+      <input type="number" id="rx-off-day" min="1" max="31" placeholder="יום" style="width:60px;" />
+      <input type="number" id="rx-off-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
+      <input type="number" id="rx-off-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
+      <input type="time" id="rx-off-time" />
+    </div>
+    <button class="btn btn-add" onclick="addRelaySchedule()" style="width:100%;">+ הוסף לוז</button>
+  </div>
+  <ul id="relay-schedule-list">
+    <li id="relay-empty-msg">אין לוז עדיין</li>
+  </ul>
+  <button id="relay-sync-btn" onclick="syncRelaySchedule()" style="width:100%;margin-top:1rem;padding:0.7rem;border-radius:8px;border:1px solid #6c63ff;background:transparent;color:#6c63ff;font-size:0.95rem;font-weight:600;cursor:pointer;">📤 שלח לוז ל-ESP32</button>
+</div>
+
 <script>
   // ── Config ──────────────────────────────────────────────
   // שנה את הערכים האלו לפי ה-HiveMQ שלך
   const BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt';
-  const TOPIC_CMD  = 'led-scheduler/cmd';      // פקודות ידניות
-  const TOPIC_SCHED = 'led-scheduler/schedule'; // לוז
+  const TOPIC_CMD  = 'led-scheduler/cmd';
+  const TOPIC_SCHED = 'led-scheduler/schedule';
+  const TOPIC_RELAY_CMD   = 'led-scheduler/relay-cmd';
+  const TOPIC_RELAY_SCHED = 'led-scheduler/relay-schedule';
 
   // ── Clock ────────────────────────────────────────────────
   function updateClock() {
@@ -278,6 +313,91 @@
     btn.className   = on ? 'on' : '';
     vis.className   = on ? 'on' : '';
   }
+
+  // ── Relay Control ────────────────────────────────────────
+  let relayState = false;
+
+  function toggleRelay() {
+    relayState = !relayState;
+    updateRelayUI(relayState);
+    if (client && client.connected) {
+      client.publish(TOPIC_RELAY_CMD, JSON.stringify({ cmd: relayState ? 'on' : 'off' }));
+    }
+  }
+
+  function updateRelayUI(on) {
+    const btn = document.getElementById('relay-toggle');
+    const vis = document.getElementById('relay-visual');
+    btn.textContent = on ? '⚡ כבה' : '⚡ הפעל';
+    btn.style.background = on ? '#ffe066' : '#2a2a4a';
+    btn.style.color = on ? '#1a1a00' : '#aaa';
+    vis.style.background = on ? '#ffe066' : '#2a2a2a';
+    vis.style.boxShadow = on ? '0 0 20px #ffe066' : 'none';
+  }
+
+  // ── Relay Schedule ────────────────────────────────────────
+  let relaySchedules = JSON.parse(localStorage.getItem('relaySchedules') || '[]');
+
+  function addRelaySchedule() {
+    const onDay   = document.getElementById('rx-on-day').value;
+    const onMonth = document.getElementById('rx-on-month').value;
+    const onYear  = document.getElementById('rx-on-year').value;
+    const onTime  = document.getElementById('rx-on-time').value;
+    const offDay  = document.getElementById('rx-off-day').value;
+    const offMonth= document.getElementById('rx-off-month').value;
+    const offYear = document.getElementById('rx-off-year').value;
+    const offTime = document.getElementById('rx-off-time').value;
+    if (!onDay || !onMonth || !onYear || !onTime || !offDay || !offMonth || !offYear || !offTime) {
+      alert('בחר תאריך ושעה');
+      return;
+    }
+    const onDate  = getDateStr(onDay, onMonth, onYear);
+    const offDate = getDateStr(offDay, offMonth, offYear);
+    relaySchedules.push({ onDate, onTime, offDate, offTime });
+    localStorage.setItem('relaySchedules', JSON.stringify(relaySchedules));
+    renderRelaySchedule();
+  }
+
+  function deleteRelaySchedule(i) {
+    relaySchedules.splice(i, 1);
+    localStorage.setItem('relaySchedules', JSON.stringify(relaySchedules));
+    renderRelaySchedule();
+  }
+
+  function renderRelaySchedule() {
+    const list = document.getElementById('relay-schedule-list');
+    if (relaySchedules.length === 0) {
+      list.innerHTML = '<li id="relay-empty-msg">אין לוז עדיין</li>';
+      return;
+    }
+    const sorted = relaySchedules.map((s, i) => ({ ...s, _orig: i }))
+      .sort((a, b) => (a.onDate + a.onTime).localeCompare(b.onDate + b.onTime));
+    list.innerHTML = sorted.map(s => `
+      <li style="flex-direction:column;align-items:flex-start;gap:0.3rem;">
+        <div style="display:flex;justify-content:space-between;width:100%;">
+          <span style="font-size:0.8rem;color:#888;">${formatDate(s.onDate)}</span>
+          <button class="btn-del" onclick="deleteRelaySchedule(${s._orig})">הסר</button>
+        </div>
+        <div style="display:flex;gap:1rem;align-items:center;">
+          <span class="tag tag-on">⚡ ${s.onTime}</span>
+          <span style="color:#555;">→</span>
+          <span class="tag tag-off">⚫ ${s.offTime}${s.offDate !== s.onDate ? ' ' + formatDate(s.offDate) : ''}</span>
+        </div>
+      </li>`).join('');
+  }
+
+  function syncRelaySchedule() {
+    if (!client || !client.connected) { alert('לא מחובר ל-MQTT'); return; }
+    const toSend = [];
+    relaySchedules.forEach(s => {
+      toSend.push({ time: s.onTime, action: 'on',  date: s.onDate });
+      toSend.push({ time: s.offTime, action: 'off', date: s.offDate });
+    });
+    client.publish(TOPIC_RELAY_SCHED, JSON.stringify({ schedules: toSend }), { retain: true });
+    alert('✅ הלוז נשלח!');
+  }
+
+  renderRelaySchedule();
 
   // ── Schedule ─────────────────────────────────────────────
   let schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
