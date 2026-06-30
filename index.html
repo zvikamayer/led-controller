@@ -203,14 +203,14 @@
       <input type="number" id="on-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="on-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="on-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="text" id="on-time" placeholder="09:00" maxlength="5" style="width:70px;" />
+      <input type="text" id="on-time" placeholder="09:00:00" maxlength="8" style="width:90px;" />
     </div>
     <div class="add-row">
       <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚫ כיבוי</label>
       <input type="number" id="off-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="off-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="off-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="text" id="off-time" placeholder="09:30" maxlength="5" style="width:70px;" />
+      <input type="text" id="off-time" placeholder="09:01:00" maxlength="8" style="width:90px;" />
     </div>
     <button class="btn btn-add" onclick="addSchedule()" style="width:100%;">+ הוסף לוז</button>
   </div>
@@ -236,14 +236,14 @@
       <input type="number" id="rx-on-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="rx-on-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="rx-on-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="text" id="rx-on-time" placeholder="09:00" maxlength="5" style="width:70px;" />
+      <input type="text" id="rx-on-time" placeholder="09:00:00" maxlength="8" style="width:90px;" />
     </div>
     <div class="add-row">
       <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚫ כיבוי</label>
       <input type="number" id="rx-off-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="rx-off-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="rx-off-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="text" id="rx-off-time" placeholder="09:30" maxlength="5" style="width:70px;" />
+      <input type="text" id="rx-off-time" placeholder="09:01:00" maxlength="8" style="width:90px;" />
     </div>
     <button class="btn btn-add" onclick="addRelaySchedule()" style="width:100%;">+ הוסף לוז</button>
   </div>
@@ -416,22 +416,42 @@
     const now = new Date();
     const hh  = String(now.getHours()).padStart(2, '0');
     const mm  = String(now.getMinutes()).padStart(2, '0');
-    const mm2 = String((now.getMinutes() + 1) % 60).padStart(2, '0');
+    const ss  = String(now.getSeconds()).padStart(2, '0');
+    const off1min = new Date(now.getTime() + 60000);
+    const hh2 = String(off1min.getHours()).padStart(2, '0');
+    const mm2 = String(off1min.getMinutes()).padStart(2, '0');
+    const ss2 = String(off1min.getSeconds()).padStart(2, '0');
 
     document.getElementById('on-day').value    = d;
     document.getElementById('on-month').value  = m;
     document.getElementById('on-year').value   = y;
-    document.getElementById('on-time').value   = `${hh}:${mm}`;
+    document.getElementById('on-time').value   = `${hh}:${mm}:${ss}`;
     document.getElementById('off-day').value   = d;
     document.getElementById('off-month').value = m;
     document.getElementById('off-year').value  = y;
-    document.getElementById('off-time').value  = `${hh}:${mm2}`;
+    document.getElementById('off-time').value  = `${hh2}:${mm2}:${ss2}`;
+
+    document.getElementById('rx-on-day').value    = d;
+    document.getElementById('rx-on-month').value  = m;
+    document.getElementById('rx-on-year').value   = y;
+    document.getElementById('rx-on-time').value   = `${hh}:${mm}:${ss}`;
+    document.getElementById('rx-off-day').value   = d;
+    document.getElementById('rx-off-month').value = m;
+    document.getElementById('rx-off-year').value  = y;
+    document.getElementById('rx-off-time').value  = `${hh2}:${mm2}:${ss2}`;
 
     ['on-day','on-month','on-year'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => {
         document.getElementById('off-day').value   = document.getElementById('on-day').value;
         document.getElementById('off-month').value = document.getElementById('on-month').value;
         document.getElementById('off-year').value  = document.getElementById('on-year').value;
+      });
+    });
+    ['rx-on-day','rx-on-month','rx-on-year'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        document.getElementById('rx-off-day').value   = document.getElementById('rx-on-day').value;
+        document.getElementById('rx-off-month').value = document.getElementById('rx-on-month').value;
+        document.getElementById('rx-off-year').value  = document.getElementById('rx-on-year').value;
       });
     });
   });
