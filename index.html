@@ -203,14 +203,14 @@
       <input type="number" id="on-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="on-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="on-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="time" id="on-time" />
+      <input type="text" id="on-time" placeholder="09:00" maxlength="5" style="width:70px;" />
     </div>
     <div class="add-row">
       <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚫ כיבוי</label>
       <input type="number" id="off-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="off-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="off-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="time" id="off-time" />
+      <input type="text" id="off-time" placeholder="09:30" maxlength="5" style="width:70px;" />
     </div>
     <button class="btn btn-add" onclick="addSchedule()" style="width:100%;">+ הוסף לוז</button>
   </div>
@@ -236,14 +236,14 @@
       <input type="number" id="rx-on-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="rx-on-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="rx-on-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="time" id="rx-on-time" />
+      <input type="text" id="rx-on-time" placeholder="09:00" maxlength="5" style="width:70px;" />
     </div>
     <div class="add-row">
       <label style="color:#aaa;font-size:0.85rem;min-width:60px;">⚫ כיבוי</label>
       <input type="number" id="rx-off-day" min="1" max="31" placeholder="יום" style="width:60px;" />
       <input type="number" id="rx-off-month" min="1" max="12" placeholder="חודש" style="width:70px;" />
       <input type="number" id="rx-off-year" min="2024" max="2099" placeholder="שנה" style="width:80px;" />
-      <input type="time" id="rx-off-time" />
+      <input type="text" id="rx-off-time" placeholder="09:30" maxlength="5" style="width:70px;" />
     </div>
     <button class="btn btn-add" onclick="addRelaySchedule()" style="width:100%;">+ הוסף לוז</button>
   </div>
