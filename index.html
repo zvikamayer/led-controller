@@ -342,9 +342,28 @@
   oledCanvas.addEventListener('mouseup',    () => drawing = false);
   oledCanvas.addEventListener('mouseleave', () => drawing = false);
   oledCanvas.addEventListener('contextmenu', e => e.preventDefault());
-  oledCanvas.addEventListener('touchstart', e => { drawing = true; erasing = false; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
-  oledCanvas.addEventListener('touchmove',  e => { if (!drawing) return; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
-  oledCanvas.addEventListener('touchend',   () => drawing = false);
+  oledCanvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const text = document.getElementById('oled-text').value;
+    if (text) return;
+    drawing = true; erasing = false;
+    const p = getPixelPos(e); drawPixel(p.x, p.y, 1);
+  });
+  oledCanvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const text = document.getElementById('oled-text').value;
+    if (text) { const p = getPixelPos(e); getTextPreview(p.x, p.y); return; }
+    if (!drawing) return;
+    const p = getPixelPos(e); drawPixel(p.x, p.y, 1);
+  });
+  oledCanvas.addEventListener('touchend', e => {
+    const text = document.getElementById('oled-text').value;
+    if (text) {
+      const p = getPixelPos(e.changedTouches ? {touches: e.changedTouches} : e);
+      stampText(p.x, p.y);
+    }
+    drawing = false;
+  });
 
   // ── Text drag ────────────────────────────────────────────
   let textDragging = false;
