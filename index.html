@@ -270,6 +270,10 @@
       <option value="16" selected>בינוני</option>
       <option value="24">גדול</option>
     </select>
+    <select id="oled-fontweight" style="padding:0.5rem;border-radius:8px;border:1px solid #444;background:#1a1a2e;color:white;">
+      <option value="normal" selected>רגיל</option>
+      <option value="bold">מודגש</option>
+    </select>
   </div>
   <p style="text-align:center;color:#555;font-size:0.8rem;margin-top:0.5rem;">✏️ כתוב טקסט → גרור על הקנבס למיקום | 🖱 ציור: קליק שמאלי | מחיקה: קליק ימני</p>
 </div>
@@ -344,7 +348,8 @@
     // ציור מחדש עם preview
     redrawPixels();
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = `${fontSize * SCALE}px monospace`;
+    const fontWeight = document.getElementById('oled-fontweight').value;
+    ctx.font = `${fontWeight} ${fontSize * SCALE}px monospace`;
     ctx.textBaseline = 'top';
     ctx.fillText(text, x * SCALE, y * SCALE);
   }
@@ -358,7 +363,8 @@
     const tc = tmp.getContext('2d');
     tc.fillStyle = '#000'; tc.fillRect(0, 0, tmp.width, tmp.height);
     tc.fillStyle = '#fff';
-    tc.font = `${fontSize * SCALE}px monospace`;
+    const fontWeight2 = document.getElementById('oled-fontweight').value;
+    tc.font = `${fontWeight2} ${fontSize * SCALE}px monospace`;
     tc.textBaseline = 'top';
     tc.fillText(text, x * SCALE, y * SCALE);
     const imgData = tc.getImageData(0, 0, tmp.width, tmp.height);
