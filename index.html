@@ -253,7 +253,79 @@
   <button id="relay-sync-btn" onclick="syncRelaySchedule()" style="width:100%;margin-top:1rem;padding:0.7rem;border-radius:8px;border:1px solid #6c63ff;background:transparent;color:#6c63ff;font-size:0.95rem;font-weight:600;cursor:pointer;">📤 שלח לוז ל-ESP32</button>
 </div>
 
+<!-- OLED Draw -->
+<div class="card">
+  <h2>🎨 ציור על המסך</h2>
+  <canvas id="oled-canvas" width="512" height="256"
+    style="display:block;margin:0 auto;cursor:crosshair;border:2px solid #444;border-radius:6px;background:#000;touch-action:none;"></canvas>
+  <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+    <button onclick="clearCanvas()" style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid #555;background:transparent;color:#aaa;cursor:pointer;">🗑 נקה</button>
+    <button onclick="sendOLED()" style="flex:2;padding:0.6rem;border-radius:8px;border:none;background:#6c63ff;color:white;font-weight:600;cursor:pointer;">📤 שלח למסך</button>
+  </div>
+  <p style="text-align:center;color:#555;font-size:0.8rem;margin-top:0.5rem;">128×64 פיקסלים | לחץ וגרור לציור</p>
+</div>
+
 <script>
+  // ── OLED Canvas ──────────────────────────────────────────
+  const COLS = 128, ROWS = 64;
+  const SCALE = 4;
+  const oledCanvas = document.getElementById('oled-canvas');
+  const ctx = oledCanvas.getContext('2d');
+  const pixels = new Uint8Array(COLS * ROWS);
+
+  function drawPixel(x, y, val) {
+    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+    pixels[y * COLS + x] = val;
+    ctx.fillStyle = val ? '#ffffff' : '#000000';
+    ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+  }
+
+  function clearCanvas() {
+    pixels.fill(0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, oledCanvas.width, oledCanvas.height);
+  }
+
+  function sendOLED() {
+    if (!client || !client.connected) { alert('לא מחובר ל-MQTT'); return; }
+    // Pack bits into bytes
+    const bytes = new Uint8Array(COLS * ROWS / 8);
+    for (let i = 0; i < pixels.length; i++) {
+      if (pixels[i]) bytes[Math.floor(i/8)] |= (0x80 >> (i % 8));
+    }
+    // Base64 encode
+    let bin = '';
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    const b64 = btoa(bin);
+    client.publish(TOPIC_OLED_DRAW, b64, { retain: true });
+    alert('✅ נשלח למסך!');
+  }
+
+  let drawing = false;
+  let erasing = false;
+
+  function getPixelPos(e) {
+    const rect = oledCanvas.getBoundingClientRect();
+    const scaleX = oledCanvas.width / rect.width;
+    const scaleY = oledCanvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: Math.floor((clientX - rect.left) * scaleX / SCALE),
+      y: Math.floor((clientY - rect.top)  * scaleY / SCALE)
+    };
+  }
+
+  oledCanvas.addEventListener('mousedown',  e => { drawing = true; erasing = e.button === 2; const p = getPixelPos(e); drawPixel(p.x, p.y, erasing ? 0 : 1); });
+  oledCanvas.addEventListener('mousemove',  e => { if (!drawing) return; const p = getPixelPos(e); drawPixel(p.x, p.y, erasing ? 0 : 1); });
+  oledCanvas.addEventListener('mouseup',    () => drawing = false);
+  oledCanvas.addEventListener('mouseleave', () => drawing = false);
+  oledCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  oledCanvas.addEventListener('touchstart', e => { drawing = true; erasing = false; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
+  oledCanvas.addEventListener('touchmove',  e => { if (!drawing) return; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
+  oledCanvas.addEventListener('touchend',   () => drawing = false);
+
+
   // ── Config ──────────────────────────────────────────────
   // שנה את הערכים האלו לפי ה-HiveMQ שלך
   const BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt';
@@ -261,6 +333,7 @@
   const TOPIC_SCHED = 'led-scheduler/schedule';
   const TOPIC_RELAY_CMD   = 'led-scheduler/relay-cmd';
   const TOPIC_RELAY_SCHED = 'led-scheduler/relay-schedule';
+  const TOPIC_OLED_DRAW   = 'led-scheduler/oled-draw';
 
   // ── Clock ────────────────────────────────────────────────
   function updateClock() {
