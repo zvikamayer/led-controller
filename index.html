@@ -329,7 +329,7 @@
     };
   }
 
-  oledCanvas.addEventListener('mousedown',  e => { drawing = true; erasing = e.button === 2; const p = getPixelPos(e); drawPixel(p.x, p.y, erasing ? 0 : 1); });
+  oledCanvas.addEventListener('mousedown',  e => { if (document.getElementById('oled-text').value) return; drawing = true; erasing = e.button === 2; const p = getPixelPos(e); drawPixel(p.x, p.y, erasing ? 0 : 1); });
   oledCanvas.addEventListener('mousemove',  e => { if (!drawing) return; const p = getPixelPos(e); drawPixel(p.x, p.y, erasing ? 0 : 1); });
   oledCanvas.addEventListener('mouseup',    () => drawing = false);
   oledCanvas.addEventListener('mouseleave', () => drawing = false);
@@ -350,7 +350,8 @@
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     const fontWeight = document.getElementById('oled-fontweight').value;
     ctx.font = `${fontWeight} ${fontSize * SCALE}px monospace`;
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
     ctx.fillText(text, x * SCALE, y * SCALE);
   }
 
@@ -365,7 +366,8 @@
     tc.fillStyle = '#fff';
     const fontWeight2 = document.getElementById('oled-fontweight').value;
     tc.font = `${fontWeight2} ${fontSize * SCALE}px monospace`;
-    tc.textBaseline = 'top';
+    tc.textBaseline = 'middle';
+    tc.textAlign = 'center';
     tc.fillText(text, x * SCALE, y * SCALE);
     const imgData = tc.getImageData(0, 0, tmp.width, tmp.height);
     for (let py = 0; py < ROWS; py++) {
