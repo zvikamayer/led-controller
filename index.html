@@ -263,7 +263,23 @@
     <button onclick="sendOLED()" style="flex:2;padding:0.6rem;border-radius:8px;border:none;background:#6c63ff;color:white;font-weight:600;cursor:pointer;">📤 שלח למסך</button>
     <button onclick="resetOLED()" style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid #ff6b6b;background:transparent;color:#ff6b6b;cursor:pointer;">🕐 שעון</button>
   </div>
-  <p style="text-align:center;color:#555;font-size:0.8rem;margin-top:0.5rem;">128×64 פיקסלים | לחץ וגרור לציור</p>
+  <div style="display:flex;gap:0.5rem;margin-top:0.8rem;align-items:center;flex-wrap:wrap;">
+    <input id="oled-text" type="text" placeholder="כתוב טקסט..." style="flex:2;min-width:120px;padding:0.5rem;border-radius:8px;border:1px solid #444;background:#1a1a2e;color:white;font-size:0.95rem;" />
+    <select id="oled-fontsize" style="padding:0.5rem;border-radius:8px;border:1px solid #444;background:#1a1a2e;color:white;">
+      <option value="8">קטן (8px)</option>
+      <option value="16" selected>בינוני (16px)</option>
+      <option value="24">גדול (24px)</option>
+    </select>
+    <button onclick="addText()" style="padding:0.5rem 0.9rem;border-radius:8px;border:none;background:#2ecc71;color:white;font-weight:600;cursor:pointer;">✏️ הוסף</button>
+  </div>
+  <div style="display:flex;gap:0.5rem;margin-top:0.4rem;align-items:center;">
+    <label style="color:#888;font-size:0.85rem;">X:</label>
+    <input id="oled-x" type="number" value="0" min="0" max="127" style="width:60px;padding:0.3rem;border-radius:6px;border:1px solid #444;background:#1a1a2e;color:white;" />
+    <label style="color:#888;font-size:0.85rem;">Y:</label>
+    <input id="oled-y" type="number" value="0" min="0" max="63" style="width:60px;padding:0.3rem;border-radius:6px;border:1px solid #444;background:#1a1a2e;color:white;" />
+    <span style="color:#555;font-size:0.8rem;">מיקום על המסך (0-127, 0-63)</span>
+  </div>
+  <p style="text-align:center;color:#555;font-size:0.8rem;margin-top:0.5rem;">128×64 פיקסלים | לחץ וגרור לציור | קליק ימני = מחיקה</p>
 </div>
 
 <script>
@@ -325,6 +341,37 @@
   oledCanvas.addEventListener('touchstart', e => { drawing = true; erasing = false; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
   oledCanvas.addEventListener('touchmove',  e => { if (!drawing) return; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
   oledCanvas.addEventListener('touchend',   () => drawing = false);
+
+  function addText() {
+    const text = document.getElementById('oled-text').value;
+    if (!text) { alert('כתוב טקסט קודם'); return; }
+    const fontSize = parseInt(document.getElementById('oled-fontsize').value);
+    const px = parseInt(document.getElementById('oled-x').value) * SCALE;
+    const py = parseInt(document.getElementById('oled-y').value) * SCALE;
+
+    // צייר טקסט על קנבס זמני באותה רזולוציה
+    const tmp = document.createElement('canvas');
+    tmp.width = oledCanvas.width;
+    tmp.height = oledCanvas.height;
+    const tc = tmp.getContext('2d');
+    tc.fillStyle = '#000';
+    tc.fillRect(0, 0, tmp.width, tmp.height);
+    tc.fillStyle = '#fff';
+    tc.font = `${fontSize * SCALE}px monospace`;
+    tc.textBaseline = 'top';
+    tc.fillText(text, px, py);
+
+    // העתק פיקסלים לקנבס הראשי ולמערך
+    const imgData = tc.getImageData(0, 0, tmp.width, tmp.height);
+    const mainCtx = oledCanvas.getContext('2d');
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const si = (y * SCALE * tmp.width + x * SCALE) * 4;
+        const bright = imgData.data[si] > 128;
+        if (bright) drawPixel(x, y, 1);
+      }
+    }
+  }
 
   function resetOLED() {
     if (!client || !client.connected) { alert('לא מחובר ל-MQTT'); return; }
