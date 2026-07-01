@@ -261,6 +261,7 @@
   <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
     <button onclick="clearCanvas()" style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid #555;background:transparent;color:#aaa;cursor:pointer;">🗑 נקה</button>
     <button onclick="sendOLED()" style="flex:2;padding:0.6rem;border-radius:8px;border:none;background:#6c63ff;color:white;font-weight:600;cursor:pointer;">📤 שלח למסך</button>
+    <button onclick="resetOLED()" style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid #ff6b6b;background:transparent;color:#ff6b6b;cursor:pointer;">🕐 שעון</button>
   </div>
   <p style="text-align:center;color:#555;font-size:0.8rem;margin-top:0.5rem;">128×64 פיקסלים | לחץ וגרור לציור</p>
 </div>
@@ -324,6 +325,12 @@
   oledCanvas.addEventListener('touchstart', e => { drawing = true; erasing = false; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
   oledCanvas.addEventListener('touchmove',  e => { if (!drawing) return; const p = getPixelPos(e); drawPixel(p.x, p.y, 1); e.preventDefault(); });
   oledCanvas.addEventListener('touchend',   () => drawing = false);
+
+  function resetOLED() {
+    if (!client || !client.connected) { alert('לא מחובר ל-MQTT'); return; }
+    client.publish(TOPIC_OLED_DRAW, '', { retain: true });
+    alert('✅ המסך חזר לשעון!');
+  }
 
 
   // ── Config ──────────────────────────────────────────────
